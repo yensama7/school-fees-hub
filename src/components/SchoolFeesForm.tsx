@@ -128,6 +128,10 @@ export function SchoolFeesForm() {
     });
 
     handler.openIframe();
+    } catch (err) {
+      toast.error("Failed to open payment. Please try again or open in a new tab.");
+      console.error("Paystack error:", err);
+    }
   };
 
   return (

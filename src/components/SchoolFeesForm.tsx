@@ -16,6 +16,7 @@ declare global {
 }
 
 export function SchoolFeesForm() {
+  const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");

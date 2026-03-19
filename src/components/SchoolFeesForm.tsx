@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ declare global {
 }
 
 export function SchoolFeesForm() {
+  const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -98,7 +100,7 @@ export function SchoolFeesForm() {
         ],
       },
       callback: (response: { reference: string }) => {
-        toast.success(`Payment successful! Reference: ${response.reference}`);
+        navigate("/payment-success");
 
         const webhookPayload = {
           parent_first_name: firstName.trim(),

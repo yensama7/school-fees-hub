@@ -105,6 +105,7 @@ export function SchoolFeesForm() {
           parent_last_name: lastName.trim(),
           gmail: email.trim(),
           children: resolvedStudents.map((s) => ({ name: s.name })),
+          total_amount: total,
           transaction_reference: response.reference,
         };
 

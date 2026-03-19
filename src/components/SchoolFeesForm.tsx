@@ -72,6 +72,12 @@ export function SchoolFeesForm() {
   const handlePay = () => {
     if (!canPay) return;
 
+    if (!window.PaystackPop) {
+      toast.error("Payment system is still loading. Please try again.");
+      return;
+    }
+
+    try {
     const handler = window.PaystackPop.setup({
       key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
       email: email.trim(),
@@ -122,6 +128,10 @@ export function SchoolFeesForm() {
     });
 
     handler.openIframe();
+    } catch (err) {
+      toast.error("Failed to open payment. Please try again or open in a new tab.");
+      console.error("Paystack error:", err);
+    }
   };
 
   return (

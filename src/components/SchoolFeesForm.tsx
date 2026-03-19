@@ -100,7 +100,7 @@ export function SchoolFeesForm() {
         ],
       },
       callback: (response: { reference: string }) => {
-        toast.success(`Payment successful! Reference: ${response.reference}`);
+        navigate("/payment-success");
 
         const webhookPayload = {
           parent_first_name: firstName.trim(),

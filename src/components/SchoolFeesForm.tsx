@@ -85,9 +85,9 @@ export function SchoolFeesForm() {
             value: `${firstName.trim()} ${lastName.trim()}`,
           },
           {
-            display_name: "Student IDs",
+            display_name: "Students",
             variable_name: "student_ids",
-            value: resolvedStudents.map((s) => s.id).join(", "),
+            value: resolvedStudents.map((s) => s.name).join(", "),
           },
         ],
       },

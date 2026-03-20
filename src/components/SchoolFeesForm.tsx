@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, type Student } from "@/lib/studentData";
-import { Plus, Trash2, GraduationCap, Loader2 } from "lucide-react";
+import { Plus, Trash2, GraduationCap, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 declare global {
@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const STUDENT_LOOKUP_URL =
   "https://emerie1.app.n8n.cloud/webhook-test/14b5aa8e-4bd1-41df-8a8b-752d4501a8c5";
@@ -32,45 +32,52 @@ export function SchoolFeesForm() {
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
-    if (value.trim() && !GMAIL_REGEX.test(value.trim())) {
-      setEmailError("Please enter a valid Gmail address (e.g. name@gmail.com)");
+    if (value.trim() && !EMAIL_REGEX.test(value.trim())) {
+      setEmailError("Please enter a valid email address");
     } else {
       setEmailError("");
     }
   };
 
-  const handleStudentIdChange = async (index: number, value: string) => {
+  const handleStudentIdChange = (index: number, value: string) => {
     const upper = value.toUpperCase();
     const updated = [...studentIds];
     updated[index] = upper;
     setStudentIds(updated);
-
-    if (upper.trim().length >= 3) {
-      setLoading((prev) => ({ ...prev, [index]: true }));
-      try {
-        const res = await fetch(STUDENT_LOOKUP_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ student_id: upper.trim() }),
-        });
-        if (!res.ok) throw new Error("Lookup failed");
-        const data = await res.json();
-        if (data && data.name) {
-          setResolved((prev) => ({ ...prev, [index]: data as Student }));
-        } else {
-          setResolved((prev) => ({ ...prev, [index]: null }));
-        }
-      } catch {
-        setResolved((prev) => ({ ...prev, [index]: null }));
-      } finally {
-        setLoading((prev) => ({ ...prev, [index]: false }));
-      }
-    } else {
+    // Clear previous result when editing
+    if (resolved[index] !== undefined) {
       setResolved((prev) => {
         const copy = { ...prev };
         delete copy[index];
         return copy;
       });
+    }
+  };
+
+  const checkStudent = async (index: number) => {
+    const id = studentIds[index]?.trim();
+    if (!id) {
+      toast.error("Please enter a student ID first.");
+      return;
+    }
+    setLoading((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch(STUDENT_LOOKUP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_id: id }),
+      });
+      if (!res.ok) throw new Error("Lookup failed");
+      const data = await res.json();
+      if (data && data.name) {
+        setResolved((prev) => ({ ...prev, [index]: data as Student }));
+      } else {
+        setResolved((prev) => ({ ...prev, [index]: null }));
+      }
+    } catch {
+      setResolved((prev) => ({ ...prev, [index]: null }));
+    } finally {
+      setLoading((prev) => ({ ...prev, [index]: false }));
     }
   };
 
@@ -103,7 +110,7 @@ export function SchoolFeesForm() {
     lastName.trim() &&
     email.trim() &&
     !emailError &&
-    GMAIL_REGEX.test(email.trim()) &&
+    EMAIL_REGEX.test(email.trim()) &&
     resolvedStudents.length > 0;
 
   const handlePay = () => {
@@ -198,11 +205,11 @@ export function SchoolFeesForm() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email">Gmail Address</Label>
+        <Label htmlFor="email">Email Address</Label>
         <Input
           id="email"
           type="email"
-          placeholder="e.g. parent@gmail.com"
+          placeholder="e.g. parent@example.com"
           value={email}
           onChange={(e) => handleEmailChange(e.target.value)}
           className={emailError ? "border-destructive" : ""}
@@ -224,6 +231,21 @@ export function SchoolFeesForm() {
                 onChange={(e) => handleStudentIdChange(index, e.target.value)}
                 className="uppercase"
               />
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={loading[index] || !sid.trim()}
+                onClick={() => checkStudent(index)}
+              >
+                {loading[index] ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-1" />
+                    Check
+                  </>
+                )}
+              </Button>
               {studentIds.length > 1 && (
                 <Button
                   variant="ghost"
@@ -235,15 +257,8 @@ export function SchoolFeesForm() {
                 </Button>
               )}
             </div>
-            {/* Loading indicator */}
-            {loading[index] && (
-              <div className="text-sm rounded-lg px-3 py-2 flex items-center gap-2 bg-muted text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Looking up student…</span>
-              </div>
-            )}
             {/* Resolved student info */}
-            {!loading[index] && resolved[index] !== undefined && (
+            {resolved[index] !== undefined && (
               <div
                 className={`text-sm rounded-lg px-3 py-2 flex items-center gap-2 ${
                   resolved[index]

@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { lookupStudent, formatCurrency, type Student } from "@/lib/studentData";
-import { Plus, Trash2, GraduationCap } from "lucide-react";
+import { formatCurrency, type Student } from "@/lib/studentData";
+import { Plus, Trash2, GraduationCap, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 declare global {
@@ -15,22 +15,56 @@ declare global {
   }
 }
 
+const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+
+const STUDENT_LOOKUP_URL =
+  "https://emerie1.app.n8n.cloud/webhook-test/14b5aa8e-4bd1-41df-8a8b-752d4501a8c5";
+
 export function SchoolFeesForm() {
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [studentIds, setStudentIds] = useState<string[]>([""]);
   const [resolved, setResolved] = useState<Record<number, Student | null>>({});
+  const [loading, setLoading] = useState<Record<number, boolean>>({});
 
-  const handleStudentIdChange = (index: number, value: string) => {
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (value.trim() && !GMAIL_REGEX.test(value.trim())) {
+      setEmailError("Please enter a valid Gmail address (e.g. name@gmail.com)");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const handleStudentIdChange = async (index: number, value: string) => {
+    const upper = value.toUpperCase();
     const updated = [...studentIds];
-    updated[index] = value;
+    updated[index] = upper;
     setStudentIds(updated);
 
-    if (value.trim().length >= 3) {
-      const student = lookupStudent(value.trim());
-      setResolved((prev) => ({ ...prev, [index]: student }));
+    if (upper.trim().length >= 3) {
+      setLoading((prev) => ({ ...prev, [index]: true }));
+      try {
+        const res = await fetch(STUDENT_LOOKUP_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: upper.trim() }),
+        });
+        if (!res.ok) throw new Error("Lookup failed");
+        const data = await res.json();
+        if (data && data.name) {
+          setResolved((prev) => ({ ...prev, [index]: data as Student }));
+        } else {
+          setResolved((prev) => ({ ...prev, [index]: null }));
+        }
+      } catch {
+        setResolved((prev) => ({ ...prev, [index]: null }));
+      } finally {
+        setLoading((prev) => ({ ...prev, [index]: false }));
+      }
     } else {
       setResolved((prev) => {
         const copy = { ...prev };
@@ -50,7 +84,6 @@ export function SchoolFeesForm() {
     setResolved((prev) => {
       const copy = { ...prev };
       delete copy[index];
-      // re-index
       const reindexed: Record<number, Student | null> = {};
       Object.entries(copy).forEach(([k, v]) => {
         const key = Number(k);
@@ -69,6 +102,8 @@ export function SchoolFeesForm() {
     firstName.trim() &&
     lastName.trim() &&
     email.trim() &&
+    !emailError &&
+    GMAIL_REGEX.test(email.trim()) &&
     resolvedStudents.length > 0;
 
   const handlePay = () => {
@@ -80,58 +115,58 @@ export function SchoolFeesForm() {
     }
 
     try {
-    const handler = window.PaystackPop.setup({
-      key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
-      email: email.trim(),
-      amount: total * 100, // Paystack expects kobo
-      currency: "NGN",
-      metadata: {
-        custom_fields: [
-          {
-            display_name: "Parent Name",
-            variable_name: "parent_name",
-            value: `${firstName.trim()} ${lastName.trim()}`,
-          },
-          {
-            display_name: "Students",
-            variable_name: "student_ids",
-            value: resolvedStudents.map((s) => s.name).join(", "),
-          },
-        ],
-      },
-      callback: (response: { reference: string }) => {
-        navigate("/payment-success");
+      const handler = window.PaystackPop.setup({
+        key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
+        email: email.trim(),
+        amount: total * 100,
+        currency: "NGN",
+        metadata: {
+          custom_fields: [
+            {
+              display_name: "Parent Name",
+              variable_name: "parent_name",
+              value: `${firstName.trim()} ${lastName.trim()}`,
+            },
+            {
+              display_name: "Students",
+              variable_name: "student_ids",
+              value: resolvedStudents.map((s) => s.name).join(", "),
+            },
+          ],
+        },
+        callback: (response: { reference: string }) => {
+          navigate("/payment-success");
 
-        const webhookPayload = {
-          parent_first_name: firstName.trim(),
-          parent_last_name: lastName.trim(),
-          gmail: email.trim(),
-          children: resolvedStudents.map((s) => ({ name: s.name })),
-          total_amount: total,
-          transaction_reference: response.reference,
-        };
+          const webhookPayload = {
+            parent_first_name: firstName.trim(),
+            parent_last_name: lastName.trim(),
+            gmail: email.trim(),
+            children: resolvedStudents.map((s) => ({ name: s.name })),
+            total_amount: total,
+            transaction_reference: response.reference,
+          };
 
-        void fetch(
-          "https://emerie1.app.n8n.cloud/webhook-test/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(webhookPayload),
-          }
-        )
-          .then(() => {
-            toast.success("Receipt sent to your email.");
-          })
-          .catch(() => {
-            toast.error("Failed to send receipt.");
-          });
-      },
-      onClose: () => {
-        toast.info("Payment window closed.");
-      },
-    });
+          void fetch(
+            "https://emerie1.app.n8n.cloud/webhook-test/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(webhookPayload),
+            }
+          )
+            .then(() => {
+              toast.success("Receipt sent to your email.");
+            })
+            .catch(() => {
+              toast.error("Failed to send receipt.");
+            });
+        },
+        onClose: () => {
+          toast.info("Payment window closed.");
+        },
+      });
 
-    handler.openIframe();
+      handler.openIframe();
     } catch (err) {
       toast.error("Failed to open payment. Please try again or open in a new tab.");
       console.error("Paystack error:", err);
@@ -169,8 +204,12 @@ export function SchoolFeesForm() {
           type="email"
           placeholder="e.g. parent@gmail.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => handleEmailChange(e.target.value)}
+          className={emailError ? "border-destructive" : ""}
         />
+        {emailError && (
+          <p className="text-sm text-destructive">{emailError}</p>
+        )}
       </div>
 
       {/* Student IDs */}
@@ -183,6 +222,7 @@ export function SchoolFeesForm() {
                 placeholder="e.g. STD001"
                 value={sid}
                 onChange={(e) => handleStudentIdChange(index, e.target.value)}
+                className="uppercase"
               />
               {studentIds.length > 1 && (
                 <Button
@@ -195,8 +235,15 @@ export function SchoolFeesForm() {
                 </Button>
               )}
             </div>
+            {/* Loading indicator */}
+            {loading[index] && (
+              <div className="text-sm rounded-lg px-3 py-2 flex items-center gap-2 bg-muted text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Looking up student…</span>
+              </div>
+            )}
             {/* Resolved student info */}
-            {resolved[index] !== undefined && (
+            {!loading[index] && resolved[index] !== undefined && (
               <div
                 className={`text-sm rounded-lg px-3 py-2 flex items-center gap-2 ${
                   resolved[index]

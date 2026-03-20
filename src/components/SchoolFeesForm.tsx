@@ -161,7 +161,7 @@ export function SchoolFeesForm() {
           };
 
           void fetch(
-            "https://emerie1.app.n8n.cloud/webhook-test/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+            "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },

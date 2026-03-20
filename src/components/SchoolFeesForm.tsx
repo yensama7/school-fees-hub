@@ -18,7 +18,7 @@ declare global {
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const STUDENT_LOOKUP_URL =
-  "https://emerie1.app.n8n.cloud/webhook-test/14b5aa8e-4bd1-41df-8a8b-752d4501a8c5";
+  "https://emerie1.app.n8n.cloud/webhook/14b5aa8e-4bd1-41df-8a8b-752d4501a8c5";
 
 export function SchoolFeesForm() {
   const navigate = useNavigate();

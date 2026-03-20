@@ -69,8 +69,15 @@ export function SchoolFeesForm() {
       });
       if (!res.ok) throw new Error("Lookup failed");
       const data = await res.json();
-      if (data && data.name) {
-        setResolved((prev) => ({ ...prev, [index]: data as Student }));
+      const record = Array.isArray(data) ? data[0] : data;
+      if (record && record.Name) {
+        const student: Student = {
+          id: record["Reg Number"] || id,
+          name: record.Name,
+          grade: record.Class,
+          fees: Number(record.fees),
+        };
+        setResolved((prev) => ({ ...prev, [index]: student }));
       } else {
         setResolved((prev) => ({ ...prev, [index]: null }));
       }

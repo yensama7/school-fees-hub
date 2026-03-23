@@ -137,34 +137,43 @@ export function SchoolFeesForm() {
         metadata: {
           custom_fields: [
             {
-              display_name: "Parent First Name",
-              variable_name: "parent_first_name",
-              value: firstName.trim(),
+              display_name: "Parent Name",
+              variable_name: "parent_name",
+              value: `${firstName.trim()} ${lastName.trim()}`,
             },
             {
-              display_name: "Parent Last Name",
-              variable_name: "parent_last_name",
-              value: lastName.trim(),
-            },
-            {
-              display_name: "Email Address",
-              variable_name: "email_address",
-              value: email.trim(),
-            },
-            {
-              display_name: "Children",
-              variable_name: "children",
+              display_name: "Students",
+              variable_name: "student_ids",
               value: resolvedStudents.map((s) => s.name).join(", "),
-            },
-            {
-              display_name: "Total Amount",
-              variable_name: "total_amount",
-              value: String(total),
             },
           ],
         },
-        callback: () => {
+        callback: (response: { reference: string }) => {
           navigate("/payment-success");
+
+          const webhookPayload = {
+            parent_first_name: firstName.trim(),
+            parent_last_name: lastName.trim(),
+            gmail: email.trim(),
+            children: resolvedStudents.map((s) => ({ name: s.name })),
+            total_amount: total,
+            transaction_reference: response.reference,
+          };
+
+          void fetch(
+            "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(webhookPayload),
+            }
+          )
+            .then(() => {
+              toast.success("Receipt sent to your email.");
+            })
+            .catch(() => {
+              toast.error("Failed to send receipt.");
+            });
         },
         onClose: () => {
           toast.info("Payment window closed.");

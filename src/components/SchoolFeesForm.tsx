@@ -120,11 +120,43 @@ export function SchoolFeesForm() {
     EMAIL_REGEX.test(email.trim()) &&
     resolvedStudents.length > 0;
 
-  const handlePay = () => {
+  const ensurePaystackReady = async () => {
+    if (window.PaystackPop) return true;
+
+    let script = document.querySelector<HTMLScriptElement>(
+      'script[src="https://js.paystack.co/v1/inline.js"]'
+    );
+
+    if (!script) {
+      script = document.createElement("script");
+      script.src = "https://js.paystack.co/v1/inline.js";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+
+    await new Promise<void>((resolve) => {
+      if (window.PaystackPop) {
+        resolve();
+        return;
+      }
+
+      const finish = () => resolve();
+      script?.addEventListener("load", finish, { once: true });
+      script?.addEventListener("error", finish, { once: true });
+      setTimeout(finish, 3000);
+    });
+
+    return Boolean(window.PaystackPop);
+  };
+
+  const handlePay = async () => {
     if (!canPay) return;
 
-    if (!window.PaystackPop) {
-      toast.error("Payment system is still loading. Please try again.");
+    const paystackReady = await ensurePaystackReady();
+    if (!paystackReady) {
+      toast.error(
+        "Unable to load Paystack checkout. Check internet/ad blocker and try again."
+      );
       return;
     }
 

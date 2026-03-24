@@ -334,10 +334,10 @@ export function SchoolFeesForm() {
         variant="pay"
         size="lg"
         className="w-full"
-        disabled={!canPay}
+        disabled={!canPay || paying}
         onClick={handlePay}
       >
-        Pay Fees
+        {paying ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</> : "Pay Fees"}
       </Button>
     </div>
   );

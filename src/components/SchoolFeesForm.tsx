@@ -130,7 +130,7 @@ export function SchoolFeesForm() {
 
     try {
       const handler = window.PaystackPop.setup({
-        key: "pk_test_f31c13bee9b516ca7b22cd485085b5acace9a84f",
+        key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
         email: email.trim(),
         amount: total * 100,
         currency: "NGN",

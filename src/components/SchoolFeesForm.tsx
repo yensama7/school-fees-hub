@@ -120,71 +120,87 @@ export function SchoolFeesForm() {
     EMAIL_REGEX.test(email.trim()) &&
     resolvedStudents.length > 0;
 
+  const [paying, setPaying] = useState(false);
+
   const handlePay = () => {
-    if (!canPay) return;
+    if (!canPay || paying) return;
+    setPaying(true);
 
-    if (!window.PaystackPop) {
-      toast.error("Payment system is still loading. Please try again.");
-      return;
+    // Store payment context for the callback page
+    const paymentContext = {
+      parent_first_name: firstName.trim(),
+      parent_last_name: lastName.trim(),
+      gmail: email.trim(),
+      children: resolvedStudents.map((s) => ({ name: s.name })),
+      total_amount: total,
+    };
+    sessionStorage.setItem("payment_context", JSON.stringify(paymentContext));
+
+    if (window.PaystackPop) {
+      try {
+        const handler = window.PaystackPop.setup({
+          key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
+          email: email.trim(),
+          amount: total * 100,
+          currency: "NGN",
+          metadata: {
+            custom_fields: [
+              {
+                display_name: "Parent Name",
+                variable_name: "parent_name",
+                value: `${firstName.trim()} ${lastName.trim()}`,
+              },
+              {
+                display_name: "Students",
+                variable_name: "student_ids",
+                value: resolvedStudents.map((s) => s.name).join(", "),
+              },
+            ],
+          },
+          callback: (response: { reference: string }) => {
+            setPaying(false);
+            navigate("/payment-success");
+
+            const webhookPayload = {
+              ...paymentContext,
+              transaction_reference: response.reference,
+            };
+
+            void fetch(
+              "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(webhookPayload),
+              }
+            )
+              .then(() => toast.success("Receipt sent to your email."))
+              .catch(() => toast.error("Failed to send receipt."));
+          },
+          onClose: () => {
+            setPaying(false);
+            toast.info("Payment window closed.");
+          },
+        });
+
+        handler.openIframe();
+        return;
+      } catch (err) {
+        console.error("Paystack iframe error:", err);
+      }
     }
 
-    try {
-      const handler = window.PaystackPop.setup({
-        key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
-        email: email.trim(),
-        amount: total * 100,
-        currency: "NGN",
-        metadata: {
-          custom_fields: [
-            {
-              display_name: "Parent Name",
-              variable_name: "parent_name",
-              value: `${firstName.trim()} ${lastName.trim()}`,
-            },
-            {
-              display_name: "Students",
-              variable_name: "student_ids",
-              value: resolvedStudents.map((s) => s.name).join(", "),
-            },
-          ],
-        },
-        callback: (response: { reference: string }) => {
-          navigate("/payment-success");
-
-          const webhookPayload = {
-            parent_first_name: firstName.trim(),
-            parent_last_name: lastName.trim(),
-            gmail: email.trim(),
-            children: resolvedStudents.map((s) => ({ name: s.name })),
-            total_amount: total,
-            transaction_reference: response.reference,
-          };
-
-          void fetch(
-            "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(webhookPayload),
-            }
-          )
-            .then(() => {
-              toast.success("Receipt sent to your email.");
-            })
-            .catch(() => {
-              toast.error("Failed to send receipt.");
-            });
-        },
-        onClose: () => {
-          toast.info("Payment window closed.");
-        },
-      });
-
-      handler.openIframe();
-    } catch (err) {
-      toast.error("Failed to open payment. Please try again or open in a new tab.");
-      console.error("Paystack error:", err);
-    }
+    // Fallback: open Paystack redirect checkout in a new tab
+    const params = new URLSearchParams({
+      key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
+      email: email.trim(),
+      amount: String(total * 100),
+      currency: "NGN",
+      callback_url: window.location.origin + "/payment-success",
+    });
+    window.open(`https://checkout.paystack.com/charge?${params.toString()}`, "_blank");
+    setPaying(false);
+    toast.info("Payment opened in a new tab.");
   };
 
   return (
@@ -318,10 +334,10 @@ export function SchoolFeesForm() {
         variant="pay"
         size="lg"
         className="w-full"
-        disabled={!canPay}
+        disabled={!canPay || paying}
         onClick={handlePay}
       >
-        Pay Fees
+        {paying ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...</> : "Pay Fees"}
       </Button>
     </div>
   );

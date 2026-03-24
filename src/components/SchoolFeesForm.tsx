@@ -124,82 +124,66 @@ export function SchoolFeesForm() {
     if (!canPay) return;
 
     if (!window.PaystackPop) {
-      toast.error("Payment system is still loading. Please wait a moment and try again.");
-      // Attempt to reload the Paystack script
-      const script = document.createElement("script");
-      script.src = "https://js.paystack.co/v1/inline.js";
-      document.head.appendChild(script);
+      toast.error("Payment system is still loading. Please try again.");
       return;
     }
 
-    const paystackConfig = {
-      key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
-      email: email.trim(),
-      amount: total * 100,
-      currency: "NGN",
-      metadata: {
-        custom_fields: [
-          {
-            display_name: "Parent Name",
-            variable_name: "parent_name",
-            value: `${firstName.trim()} ${lastName.trim()}`,
-          },
-          {
-            display_name: "Students",
-            variable_name: "student_ids",
-            value: resolvedStudents.map((s) => s.name).join(", "),
-          },
-        ],
-      },
-      callback: (response: { reference: string }) => {
-        navigate("/payment-success");
-
-        const webhookPayload = {
-          parent_first_name: firstName.trim(),
-          parent_last_name: lastName.trim(),
-          gmail: email.trim(),
-          children: resolvedStudents.map((s) => ({ name: s.name })),
-          total_amount: total,
-          transaction_reference: response.reference,
-        };
-
-        void fetch(
-          "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(webhookPayload),
-          }
-        )
-          .then(() => {
-            toast.success("Receipt sent to your email.");
-          })
-          .catch(() => {
-            toast.error("Failed to send receipt.");
-          });
-      },
-      onClose: () => {
-        toast.info("Payment window closed.");
-      },
-    };
-
     try {
-      const handler = window.PaystackPop.setup(paystackConfig);
+      const handler = window.PaystackPop.setup({
+        key: "pk_test_513f13a049085892c9481db297e58d15e9743a02",
+        email: email.trim(),
+        amount: total * 100,
+        currency: "NGN",
+        metadata: {
+          custom_fields: [
+            {
+              display_name: "Parent Name",
+              variable_name: "parent_name",
+              value: `${firstName.trim()} ${lastName.trim()}`,
+            },
+            {
+              display_name: "Students",
+              variable_name: "student_ids",
+              value: resolvedStudents.map((s) => s.name).join(", "),
+            },
+          ],
+        },
+        callback: (response: { reference: string }) => {
+          navigate("/payment-success");
+
+          const webhookPayload = {
+            parent_first_name: firstName.trim(),
+            parent_last_name: lastName.trim(),
+            gmail: email.trim(),
+            children: resolvedStudents.map((s) => ({ name: s.name })),
+            total_amount: total,
+            transaction_reference: response.reference,
+          };
+
+          void fetch(
+            "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(webhookPayload),
+            }
+          )
+            .then(() => {
+              toast.success("Receipt sent to your email.");
+            })
+            .catch(() => {
+              toast.error("Failed to send receipt.");
+            });
+        },
+        onClose: () => {
+          toast.info("Payment window closed.");
+        },
+      });
+
       handler.openIframe();
     } catch (err) {
-      console.error("Paystack inline failed, trying popup:", err);
-      // Fallback: open in a new popup window
-      try {
-        const handler = window.PaystackPop.setup(paystackConfig);
-        if (typeof (handler as any).openPopup === "function") {
-          (handler as any).openPopup();
-        } else {
-          toast.error("Payment popup blocked. Please allow popups for this site and try again.");
-        }
-      } catch (err2) {
-        toast.error("Failed to open payment. Please allow popups or try a different browser.");
-        console.error("Paystack popup fallback error:", err2);
-      }
+      toast.error("Failed to open payment. Please try again or open in a new tab.");
+      console.error("Paystack error:", err);
     }
   };
 

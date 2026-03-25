@@ -148,9 +148,7 @@ export function SchoolFeesForm() {
             },
           ],
         },
-        callback: (response: { reference: string }) => {
-          navigate("/payment-success");
-
+        callback: async (response: { reference: string }) => {
           const webhookPayload = {
             parent_first_name: firstName.trim(),
             parent_last_name: lastName.trim(),
@@ -160,20 +158,21 @@ export function SchoolFeesForm() {
             transaction_reference: response.reference,
           };
 
-          void fetch(
-            "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(webhookPayload),
-            }
-          )
-            .then(() => {
-              toast.success("Receipt sent to your email.");
-            })
-            .catch(() => {
-              toast.error("Failed to send receipt.");
-            });
+          try {
+            await fetch(
+              "https://emerie1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(webhookPayload),
+              }
+            );
+            toast.success("Receipt sent to your email.");
+          } catch {
+            toast.error("Failed to send receipt.");
+          }
+
+          navigate("/payment-success");
         },
         onClose: () => {
           toast.info("Payment window closed.");

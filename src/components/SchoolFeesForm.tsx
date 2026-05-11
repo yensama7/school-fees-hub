@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency, type Student } from "@/lib/studentData";
 import { Plus, Trash2, GraduationCap, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,16 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const STUDENT_LOOKUP_URL =
   "https://beta-test1.app.n8n.cloud/webhook-test/bea95683-07e0-45b1-a69d-d33171fb34e9";
 
+const OPTIONAL_FEES_URL =
+  "https://beta-test1.app.n8n.cloud/webhook-test/34b4adf9-6386-44df-99e6-720a7c3d4596";
+
+interface OptionalFee {
+  id: number;
+  fee_name: string;
+  amount: number;
+  category: string;
+}
+
 export function SchoolFeesForm() {
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState("");
@@ -29,6 +40,45 @@ export function SchoolFeesForm() {
   const [studentIds, setStudentIds] = useState<string[]>([""]);
   const [resolved, setResolved] = useState<Record<number, Student | null>>({});
   const [loading, setLoading] = useState<Record<number, boolean>>({});
+  const [optionalFees, setOptionalFees] = useState<OptionalFee[]>([]);
+  // selectedOptional[index] = Set of fee ids selected for that student
+  const [selectedOptional, setSelectedOptional] = useState<
+    Record<number, Set<number>>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(OPTIONAL_FEES_URL, { method: "GET" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list: OptionalFee[] = (Array.isArray(data) ? data : []).map(
+          (r: Record<string, unknown>) => ({
+            id: Number(r.id),
+            fee_name: String(r.fee_name),
+            amount: Number(r.amount),
+            category: String(r.category),
+          })
+        );
+        if (!cancelled) setOptionalFees(list);
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleOptional = (index: number, feeId: number) => {
+    setSelectedOptional((prev) => {
+      const current = new Set(prev[index] ?? []);
+      if (current.has(feeId)) current.delete(feeId);
+      else current.add(feeId);
+      return { ...prev, [index]: current };
+    });
+  };
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
@@ -105,12 +155,35 @@ export function SchoolFeesForm() {
       });
       return reindexed;
     });
+    setSelectedOptional((prev) => {
+      const copy = { ...prev };
+      delete copy[index];
+      const reindexed: Record<number, Set<number>> = {};
+      Object.entries(copy).forEach(([k, v]) => {
+        const key = Number(k);
+        reindexed[key > index ? key - 1 : key] = v;
+      });
+      return reindexed;
+    });
   };
 
   const resolvedStudents = Object.values(resolved).filter(
     (s): s is Student => s !== null
   );
-  const total = resolvedStudents.reduce((sum, s) => sum + s.fees, 0);
+  const baseTotal = resolvedStudents.reduce((sum, s) => sum + s.fees, 0);
+  const optionalTotal = Object.entries(selectedOptional).reduce(
+    (sum, [idx, ids]) => {
+      if (!resolved[Number(idx)]) return sum;
+      let s = sum;
+      ids.forEach((id) => {
+        const fee = optionalFees.find((f) => f.id === id);
+        if (fee) s += fee.amount;
+      });
+      return s;
+    },
+    0
+  );
+  const total = baseTotal + optionalTotal;
 
   const canPay =
     firstName.trim() &&
@@ -153,7 +226,23 @@ export function SchoolFeesForm() {
             parent_first_name: firstName.trim(),
             parent_last_name: lastName.trim(),
             gmail: email.trim(),
-            children: resolvedStudents.map((s) => ({ name: s.name })),
+            children: Object.entries(resolved)
+              .filter(([, s]) => s !== null)
+              .map(([idx, s]) => {
+                const ids = selectedOptional[Number(idx)] ?? new Set<number>();
+                const extras = optionalFees
+                  .filter((f) => ids.has(f.id))
+                  .map((f) => ({
+                    fee_name: f.fee_name,
+                    amount: f.amount,
+                    category: f.category,
+                  }));
+                return {
+                  name: (s as Student).name,
+                  base_fee: (s as Student).fees,
+                  optional_fees: extras,
+                };
+              }),
             total_amount: total,
             transaction_reference: response.reference,
           };
@@ -263,28 +352,70 @@ export function SchoolFeesForm() {
             </div>
             {/* Resolved student info */}
             {resolved[index] !== undefined && (
-              <div
-                className={`text-sm rounded-lg px-3 py-2 flex items-center gap-2 ${
-                  resolved[index]
-                    ? "bg-secondary text-secondary-foreground"
-                    : "bg-destructive/10 text-destructive"
-                }`}
-              >
-                {resolved[index] ? (
-                  <>
-                    <GraduationCap className="h-4 w-4 shrink-0" />
-                    <span className="font-medium">{resolved[index]!.name}</span>
-                    <span className="text-muted-foreground">
-                      — {resolved[index]!.grade}
-                    </span>
-                    <span className="ml-auto font-semibold">
-                      {formatCurrency(resolved[index]!.fees)}
-                    </span>
-                  </>
-                ) : (
-                  <span>Student not found</span>
+              <>
+                <div
+                  className={`text-sm rounded-lg px-3 py-2 flex items-center gap-2 ${
+                    resolved[index]
+                      ? "bg-secondary text-secondary-foreground"
+                      : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {resolved[index] ? (
+                    <>
+                      <GraduationCap className="h-4 w-4 shrink-0" />
+                      <span className="font-medium">{resolved[index]!.name}</span>
+                      <span className="text-muted-foreground">
+                        — {resolved[index]!.grade}
+                      </span>
+                      <span className="ml-auto font-semibold">
+                        {formatCurrency(resolved[index]!.fees)}
+                      </span>
+                    </>
+                  ) : (
+                    <span>Student not found</span>
+                  )}
+                </div>
+                {resolved[index] && optionalFees.length > 0 && (
+                  <div className="mt-2 ml-1 space-y-2 border-l-2 border-border pl-3">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Optional Payments
+                    </p>
+                    {optionalFees.map((fee) => {
+                      const checked =
+                        selectedOptional[index]?.has(fee.id) ?? false;
+                      const cbId = `opt-${index}-${fee.id}`;
+                      return (
+                        <div
+                          key={fee.id}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            id={cbId}
+                            checked={checked}
+                            onCheckedChange={() =>
+                              toggleOptional(index, fee.id)
+                            }
+                          />
+                          <Label
+                            htmlFor={cbId}
+                            className="font-normal cursor-pointer flex-1 flex items-center justify-between"
+                          >
+                            <span>
+                              {fee.fee_name}
+                              <span className="text-muted-foreground ml-1">
+                                ({fee.category})
+                              </span>
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(fee.amount)}
+                            </span>
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         ))}

@@ -19,10 +19,10 @@ declare global {
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const STUDENT_LOOKUP_URL =
-  "https://beta-test1.app.n8n.cloud/webhook-test/bea95683-07e0-45b1-a69d-d33171fb34e9";
+  "https://beta-test1.app.n8n.cloud/webhook/bea95683-07e0-45b1-a69d-d33171fb34e9";
 
 const OPTIONAL_FEES_URL =
-  "https://beta-test1.app.n8n.cloud/webhook-test/34b4adf9-6386-44df-99e6-720a7c3d4596";
+  "https://beta-test1.app.n8n.cloud/webhook/34b4adf9-6386-44df-99e6-720a7c3d4596";
 
 interface OptionalFee {
   id: number;

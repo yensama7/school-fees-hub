@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency, type Student } from "@/lib/studentData";
-import { GraduationCap, Loader2, Search } from "lucide-react";
+import { GraduationCap, Loader2, Search, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 declare global {
@@ -23,6 +23,9 @@ const STUDENT_LOOKUP_URL =
 
 const OPTIONAL_FEES_URL =
   "https://beta-test1.app.n8n.cloud/webhook/34b4adf9-6386-44df-99e6-720a7c3d4596";
+
+const STUDENT_BY_ID_URL =
+  "https://beta-test1.app.n8n.cloud/webhook-test/c0320dc7-d639-40df-b5af-27d0babec959";
 
 interface OptionalFee {
   id: number;
@@ -46,6 +49,8 @@ export function SchoolFeesForm() {
   const [selectedOptional, setSelectedOptional] = useState<
     Record<number, Set<number>>
   >({});
+  const [extraStudentId, setExtraStudentId] = useState("");
+  const [addingStudent, setAddingStudent] = useState(false);
 
   const fetchOptionalFees = async () => {
     if (optionalFees.length > 0) return;
@@ -92,6 +97,78 @@ export function SchoolFeesForm() {
       setSearched(false);
       setResolved({});
       setSelectedOptional({});
+      setExtraStudentId("");
+    }
+  };
+
+  const removeStudent = (index: number) => {
+    setResolved((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+    setSelectedOptional((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
+
+  const addStudentById = async () => {
+    const sid = extraStudentId.trim().toUpperCase();
+    const fid = familyId.trim();
+    if (!sid) {
+      toast.error("Please enter a student ID.");
+      return;
+    }
+    if (!fid) {
+      toast.error("Please search by family ID first.");
+      return;
+    }
+    const exists = Object.values(resolved).some(
+      (s) => s && s.id.toUpperCase() === sid
+    );
+    if (exists) {
+      toast.error("This student has already been added.");
+      return;
+    }
+    setAddingStudent(true);
+    try {
+      const res = await fetch(STUDENT_BY_ID_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ family_id: fid, student_id: sid }),
+      });
+      if (!res.ok) throw new Error("Lookup failed");
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : data ? [data] : [];
+      const record = arr[0] as Record<string, unknown> | undefined;
+      if (!record || !record.Name) {
+        toast.error("Student not found.");
+        return;
+      }
+      const student: Student = {
+        id: String(record["Reg Number"] ?? sid),
+        name: String(record.Name),
+        grade: String(record.Class ?? ""),
+        fees: Number(record.fees),
+      };
+      const dup = Object.values(resolved).some(
+        (s) => s && s.id.toUpperCase() === student.id.toUpperCase()
+      );
+      if (dup) {
+        toast.error("This student has already been added.");
+        return;
+      }
+      const keys = Object.keys(resolved).map(Number);
+      const nextIdx = keys.length ? Math.max(...keys) + 1 : 0;
+      setResolved((prev) => ({ ...prev, [nextIdx]: student }));
+      setExtraStudentId("");
+      toast.success(`${student.name} added.`);
+    } catch {
+      toast.error("Lookup failed. Please try again.");
+    } finally {
+      setAddingStudent(false);
     }
   };
 
@@ -341,6 +418,16 @@ export function SchoolFeesForm() {
                         <span className="ml-auto font-semibold">
                           {formatCurrency(childTotal)}
                         </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 -mr-1"
+                          onClick={() => removeStudent(index)}
+                          aria-label={`Remove ${student.name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </>
                     );
                   })()}
@@ -389,6 +476,37 @@ export function SchoolFeesForm() {
             </div>
           );
         })}
+        {searched && Object.keys(resolved).length > 0 && (
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="extraStudentId" className="text-xs text-muted-foreground">
+              Add another student by Student ID
+            </Label>
+            <div className="flex gap-2 items-center">
+              <Input
+                id="extraStudentId"
+                placeholder="e.g. STD004"
+                value={extraStudentId}
+                onChange={(e) => setExtraStudentId(e.target.value.toUpperCase())}
+                className="uppercase"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={addingStudent || !extraStudentId.trim()}
+                onClick={addStudentById}
+              >
+                {addingStudent ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Total */}

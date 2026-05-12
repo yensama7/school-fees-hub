@@ -37,9 +37,10 @@ export function SchoolFeesForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [studentIds, setStudentIds] = useState<string[]>([""]);
+  const [familyId, setFamilyId] = useState("");
   const [resolved, setResolved] = useState<Record<number, Student | null>>({});
-  const [loading, setLoading] = useState<Record<number, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [optionalFees, setOptionalFees] = useState<OptionalFee[]>([]);
   // selectedOptional[index] = Set of fee ids selected for that student
   const [selectedOptional, setSelectedOptional] = useState<
@@ -85,97 +86,57 @@ export function SchoolFeesForm() {
     }
   };
 
-  const handleStudentIdChange = (index: number, value: string) => {
-    const upper = value.toUpperCase();
-    const updated = [...studentIds];
-    updated[index] = upper;
-    setStudentIds(updated);
-    // Clear previous result when editing
-    if (resolved[index] !== undefined) {
-      setResolved((prev) => {
-        const copy = { ...prev };
-        delete copy[index];
-        return copy;
-      });
+  const handleFamilyIdChange = (value: string) => {
+    setFamilyId(value.toUpperCase());
+    if (searched) {
+      setSearched(false);
+      setResolved({});
+      setSelectedOptional({});
     }
   };
 
-  const checkStudent = async (index: number) => {
-    const id = studentIds[index]?.trim();
+  const checkFamily = async () => {
+    const id = familyId.trim();
     if (!id) {
-      toast.error("Please enter a student ID first.");
+      toast.error("Please enter a family ID first.");
       return;
     }
-    const duplicate = Object.entries(resolved).some(
-      ([i, s]) => Number(i) !== index && s && s.id.toUpperCase() === id.toUpperCase()
-    );
-    if (duplicate) {
-      toast.error("This student has already been added.");
-      return;
-    }
-    const duplicateId = studentIds.some(
-      (other, i) => i !== index && other.trim().toUpperCase() === id.toUpperCase() && resolved[i]
-    );
-    if (duplicateId) {
-      toast.error("This student has already been added.");
-      return;
-    }
-    setLoading((prev) => ({ ...prev, [index]: true }));
+    setLoading(true);
     try {
       const res = await fetch(STUDENT_LOOKUP_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_id: id }),
+        body: JSON.stringify({ family_id: id }),
       });
       if (!res.ok) throw new Error("Lookup failed");
       const data = await res.json();
-      const record = Array.isArray(data) ? data[0] : data;
-      if (record && record.Name) {
-        const student: Student = {
-          id: record["Reg Number"] || id,
-          name: record.Name,
-          grade: record.Class,
-          fees: Number(record.fees),
-        };
-        setResolved((prev) => ({ ...prev, [index]: student }));
-        fetchOptionalFees();
+      const arr = Array.isArray(data) ? data : data ? [data] : [];
+      const map: Record<number, Student | null> = {};
+      arr.forEach((record: Record<string, unknown>, i: number) => {
+        if (record && record.Name) {
+          map[i] = {
+            id: String(record["Reg Number"] ?? ""),
+            name: String(record.Name),
+            grade: String(record.Class ?? ""),
+            fees: Number(record.fees),
+          };
+        }
+      });
+      setResolved(map);
+      setSelectedOptional({});
+      setSearched(true);
+      if (Object.keys(map).length === 0) {
+        toast.error("No students found for this family ID.");
       } else {
-        setResolved((prev) => ({ ...prev, [index]: null }));
+        fetchOptionalFees();
       }
     } catch {
-      setResolved((prev) => ({ ...prev, [index]: null }));
+      setResolved({});
+      setSearched(true);
+      toast.error("Lookup failed. Please try again.");
     } finally {
-      setLoading((prev) => ({ ...prev, [index]: false }));
+      setLoading(false);
     }
-  };
-
-  const addStudentField = () => {
-    setStudentIds([...studentIds, ""]);
-  };
-
-  const removeStudentField = (index: number) => {
-    if (studentIds.length === 1) return;
-    setStudentIds(studentIds.filter((_, i) => i !== index));
-    setResolved((prev) => {
-      const copy = { ...prev };
-      delete copy[index];
-      const reindexed: Record<number, Student | null> = {};
-      Object.entries(copy).forEach(([k, v]) => {
-        const key = Number(k);
-        reindexed[key > index ? key - 1 : key] = v;
-      });
-      return reindexed;
-    });
-    setSelectedOptional((prev) => {
-      const copy = { ...prev };
-      delete copy[index];
-      const reindexed: Record<number, Set<number>> = {};
-      Object.entries(copy).forEach(([k, v]) => {
-        const key = Number(k);
-        reindexed[key > index ? key - 1 : key] = v;
-      });
-      return reindexed;
-    });
   };
 
   const resolvedStudents = Object.values(resolved).filter(
@@ -325,75 +286,66 @@ export function SchoolFeesForm() {
 
       {/* Student IDs */}
       <div className="space-y-3">
-        <Label>Student ID(s)</Label>
-        {studentIds.map((sid, index) => (
-          <div key={index} className="space-y-1">
-            <div className="flex gap-2 items-center">
-              <Input
-                placeholder="e.g. STD001"
-                value={sid}
-                onChange={(e) => handleStudentIdChange(index, e.target.value)}
-                className="uppercase"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={loading[index] || !sid.trim()}
-                onClick={() => checkStudent(index)}
-              >
-                {loading[index] ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 mr-1" />
-                    Check
-                  </>
-                )}
-              </Button>
-              {studentIds.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeStudentField(index)}
-                  aria-label="Remove student"
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              )}
-            </div>
-            {/* Resolved student info */}
-            {resolved[index] !== undefined && (
+        <Label htmlFor="familyId">Family ID</Label>
+        <div className="flex gap-2 items-center">
+          <Input
+            id="familyId"
+            placeholder="e.g. FAM001"
+            value={familyId}
+            onChange={(e) => handleFamilyIdChange(e.target.value)}
+            className="uppercase"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={loading || !familyId.trim()}
+            onClick={checkFamily}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Search className="h-4 w-4 mr-1" />
+                Check
+              </>
+            )}
+          </Button>
+        </div>
+        {searched && Object.keys(resolved).length === 0 && (
+          <div className="text-sm rounded-lg px-3 py-2 bg-destructive/10 text-destructive">
+            No students found for this family ID.
+          </div>
+        )}
+        {Object.entries(resolved).map(([key, student]) => {
+          const index = Number(key);
+          if (!student) return null;
+          return (
+            <div key={index} className="space-y-1">
               <>
                 <div
-                  className={`text-sm rounded-lg px-3 py-2 flex items-center gap-2 ${
-                    resolved[index]
-                      ? "bg-secondary text-secondary-foreground"
-                      : "bg-destructive/10 text-destructive"
-                  }`}
+                  className="text-sm rounded-lg px-3 py-2 flex items-center gap-2 bg-secondary text-secondary-foreground"
                 >
-                  {resolved[index] ? (() => {
+                  {(() => {
                     const ids = selectedOptional[index] ?? new Set<number>();
                     const extra = optionalFees
                       .filter((f) => ids.has(f.id))
                       .reduce((s, f) => s + f.amount, 0);
-                    const childTotal = resolved[index]!.fees + extra;
+                    const childTotal = student.fees + extra;
                     return (
                       <>
                         <GraduationCap className="h-4 w-4 shrink-0" />
-                        <span className="font-medium">{resolved[index]!.name}</span>
+                        <span className="font-medium">{student.name}</span>
                         <span className="text-muted-foreground">
-                          — {resolved[index]!.grade}
+                          — {student.grade}
                         </span>
                         <span className="ml-auto font-semibold">
                           {formatCurrency(childTotal)}
                         </span>
                       </>
                     );
-                  })() : (
-                    <span>Student not found</span>
-                  )}
+                  })()}
                 </div>
-                {resolved[index] && optionalFees.length > 0 && (
+                {optionalFees.length > 0 && (
                   <div className="mt-2 ml-1 space-y-2 border-l-2 border-border pl-3">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       Optional Payments
@@ -434,19 +386,9 @@ export function SchoolFeesForm() {
                   </div>
                 )}
               </>
-            )}
-          </div>
-        ))}
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addStudentField}
-          className="mt-1"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add another student
-        </Button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Total */}

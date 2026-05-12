@@ -52,7 +52,8 @@ export function SchoolFeesForm() {
       const res = await fetch(OPTIONAL_FEES_URL, { method: "GET" });
       if (!res.ok) return;
       const data = await res.json();
-      const list: OptionalFee[] = (Array.isArray(data) ? data : []).map(
+      const arr = Array.isArray(data) ? data : data ? [data] : [];
+      const list: OptionalFee[] = arr.map(
         (r: Record<string, unknown>) => ({
           id: Number(r.id),
           fee_name: String(r.fee_name),

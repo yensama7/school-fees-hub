@@ -356,18 +356,25 @@ export function SchoolFeesForm() {
                       : "bg-destructive/10 text-destructive"
                   }`}
                 >
-                  {resolved[index] ? (
-                    <>
-                      <GraduationCap className="h-4 w-4 shrink-0" />
-                      <span className="font-medium">{resolved[index]!.name}</span>
-                      <span className="text-muted-foreground">
-                        — {resolved[index]!.grade}
-                      </span>
-                      <span className="ml-auto font-semibold">
-                        {formatCurrency(resolved[index]!.fees)}
-                      </span>
-                    </>
-                  ) : (
+                  {resolved[index] ? (() => {
+                    const ids = selectedOptional[index] ?? new Set<number>();
+                    const extra = optionalFees
+                      .filter((f) => ids.has(f.id))
+                      .reduce((s, f) => s + f.amount, 0);
+                    const childTotal = resolved[index]!.fees + extra;
+                    return (
+                      <>
+                        <GraduationCap className="h-4 w-4 shrink-0" />
+                        <span className="font-medium">{resolved[index]!.name}</span>
+                        <span className="text-muted-foreground">
+                          — {resolved[index]!.grade}
+                        </span>
+                        <span className="ml-auto font-semibold">
+                          {formatCurrency(childTotal)}
+                        </span>
+                      </>
+                    );
+                  })() : (
                     <span>Student not found</span>
                   )}
                 </div>

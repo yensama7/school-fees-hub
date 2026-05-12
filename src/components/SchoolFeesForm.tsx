@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency, type Student } from "@/lib/studentData";
-import { Plus, Trash2, GraduationCap, Loader2, Search } from "lucide-react";
+import { GraduationCap, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 declare global {

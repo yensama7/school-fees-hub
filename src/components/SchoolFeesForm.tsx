@@ -106,6 +106,20 @@ export function SchoolFeesForm() {
       toast.error("Please enter a student ID first.");
       return;
     }
+    const duplicate = Object.entries(resolved).some(
+      ([i, s]) => Number(i) !== index && s && s.id.toUpperCase() === id.toUpperCase()
+    );
+    if (duplicate) {
+      toast.error("This student has already been added.");
+      return;
+    }
+    const duplicateId = studentIds.some(
+      (other, i) => i !== index && other.trim().toUpperCase() === id.toUpperCase() && resolved[i]
+    );
+    if (duplicateId) {
+      toast.error("This student has already been added.");
+      return;
+    }
     setLoading((prev) => ({ ...prev, [index]: true }));
     try {
       const res = await fetch(STUDENT_LOOKUP_URL, {

@@ -46,30 +46,25 @@ export function SchoolFeesForm() {
     Record<number, Set<number>>
   >({});
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(OPTIONAL_FEES_URL, { method: "GET" });
-        if (!res.ok) return;
-        const data = await res.json();
-        const list: OptionalFee[] = (Array.isArray(data) ? data : []).map(
-          (r: Record<string, unknown>) => ({
-            id: Number(r.id),
-            fee_name: String(r.fee_name),
-            amount: Number(r.amount),
-            category: String(r.category),
-          })
-        );
-        if (!cancelled) setOptionalFees(list);
-      } catch {
-        /* silent */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const fetchOptionalFees = async () => {
+    if (optionalFees.length > 0) return;
+    try {
+      const res = await fetch(OPTIONAL_FEES_URL, { method: "GET" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const list: OptionalFee[] = (Array.isArray(data) ? data : []).map(
+        (r: Record<string, unknown>) => ({
+          id: Number(r.id),
+          fee_name: String(r.fee_name),
+          amount: Number(r.amount),
+          category: String(r.category),
+        })
+      );
+      setOptionalFees(list);
+    } catch {
+      /* silent */
+    }
+  };
 
   const toggleOptional = (index: number, feeId: number) => {
     setSelectedOptional((prev) => {
@@ -128,6 +123,7 @@ export function SchoolFeesForm() {
           fees: Number(record.fees),
         };
         setResolved((prev) => ({ ...prev, [index]: student }));
+        fetchOptionalFees();
       } else {
         setResolved((prev) => ({ ...prev, [index]: null }));
       }

@@ -55,7 +55,13 @@ export function SchoolFeesForm() {
   const fetchOptionalFees = async () => {
     if (optionalFees.length > 0) return;
     try {
-      const res = await fetch(OPTIONAL_FEES_URL, { method: "GET" });
+      const res = await fetch(OPTIONAL_FEES_URL, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": "blissville_secure_998822",
+        },
+      });
       if (!res.ok) return;
       const data = await res.json();
       const arr = Array.isArray(data) ? data : data ? [data] : [];
@@ -136,7 +142,10 @@ export function SchoolFeesForm() {
     try {
       const res = await fetch(STUDENT_BY_ID_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": "blissville_secure_998822",
+        },
         body: JSON.stringify({ family_id: fid, student_id: sid }),
       });
       if (!res.ok) throw new Error("Lookup failed");
@@ -182,7 +191,10 @@ export function SchoolFeesForm() {
     try {
       const res = await fetch(STUDENT_LOOKUP_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": "blissville_secure_998822",
+        },
         body: JSON.stringify({ family_id: id }),
       });
       if (!res.ok) throw new Error("Lookup failed");
@@ -300,7 +312,10 @@ export function SchoolFeesForm() {
             "https://beta-test1.app.n8n.cloud/webhook-test/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": "blissville_secure_998822",
+              },
               body: JSON.stringify(webhookPayload),
               keepalive: true,
             }

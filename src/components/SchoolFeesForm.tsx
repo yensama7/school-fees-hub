@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency, type Student } from "@/lib/studentData";
-import { GraduationCap, Loader2, Search, X, Plus } from "lucide-react";
+import { GraduationCap, Loader2, Search, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 declare global {
@@ -25,7 +25,7 @@ const OPTIONAL_FEES_URL =
   "https://beta-test1.app.n8n.cloud/webhook/34b4adf9-6386-44df-99e6-720a7c3d4596";
 
 const STUDENT_BY_ID_URL =
-  "https://beta-test1.app.n8n.cloud/webhook-test/c0320dc7-d639-40df-b5af-27d0babec959";
+  "https://beta-test1.app.n8n.cloud/webhook/c0320dc7-d639-40df-b5af-27d0babec959";
 
 interface OptionalFee {
   id: number;
@@ -426,7 +426,7 @@ export function SchoolFeesForm() {
                           onClick={() => removeStudent(index)}
                           aria-label={`Remove ${student.name}`}
                         >
-                          <X className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </>
                     );

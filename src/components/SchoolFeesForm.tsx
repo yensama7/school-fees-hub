@@ -309,7 +309,7 @@ export function SchoolFeesForm() {
           };
 
           fetch(
-            "https://beta-test1.app.n8n.cloud/webhook-test/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
+            "https://beta-test1.app.n8n.cloud/webhook/7e4c1dea-18cc-44ef-ab4b-fd010371ede5",
             {
               method: "POST",
               headers: {
